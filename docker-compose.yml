@@ -1,0 +1,46 @@
+version: '3.8'
+services:
+    nginx:
+        image: nginx:1.21.1-alpine
+        volumes:
+            - ./manager/docker/development/nginx/conf.d/default.conf:/etc/nginx/conf.d/default.conf
+            - ./manager:/var/www
+        depends_on:
+            - php-fpm
+        ports:
+            - "8080:80"
+    php-fpm:
+        build:
+            context: manager/docker/development
+            dockerfile: php-fpm/Dockerfile
+        volumes:
+            - ./manager:/var/www
+        environment:
+            PHP_IDE_CONFIG: serverName=Docker
+        depends_on:
+            - postgres
+    php-cli:
+        build:
+            context: manager/docker/development
+            dockerfile: php-cli/Dockerfile
+        volumes:
+            - ./manager:/var/www
+            - composer:/root/.composer/cache
+        environment:
+            PHP_IDE_CONFIG: serverName=Docker
+        depends_on:
+            - postgres
+    postgres:
+        image: postgres:13.3-alpine
+        volumes:
+            - postgres:/var/lib/postgresql/data
+        environment:
+            POSTGRES_USER: app
+            POSTGRES_PASSWORD: secret
+            POSTGRES_DB: app
+        ports:
+            - "54321:5432"
+
+volumes:
+    postgres:
+    composer:
