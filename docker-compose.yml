@@ -26,8 +26,6 @@ services:
         volumes:
             - ./manager:/var/www
             - composer:/root/.composer/cache
-        environment:
-            PHP_IDE_CONFIG: serverName=Docker
         depends_on:
             - postgres
     postgres:
