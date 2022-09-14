@@ -1,10 +1,12 @@
 # Docker-PHP8-XDebug-NGINX-pgSQL
 
-1. Устанавливаем папку с докером в папку с вашим проектом.
-2. Файлы `.gitignore, docker-compose.yml, docker-compose-production.yml, Makefile` переносим в корень проекта.
-    1. В конфиге `conf.d/nginx` меняем сервер на свой.
-3. В терминале пишем `make init`. Контейнеры должны запустится.
-4. Далее переходим по ссылке https://handynotes.ru/2020/12/phpstorm-php-8-docker-xdebug-3.html и начиная с настройки сервера PHP.
-5. В `.env` прописываем `DATABASE_URL=pgsql://app:secret@postgres:5432/app` для подключения к базе
+1. Запускаем команду `make init`. Контейнеры должны запустится.
+2. Установка Symfony
+   1. `composer create-project symfony/skeleton:"6.1.*" app`
+   2. `mv app/*(D) .`
+   3. `rmdir app`
+3. В `.env` прописываем для `DATABASE_URL` хост, который называется `postgres`
 
-###### **_`Makefile` в основном сделан для Symfony._**
+## Установка XDebug
+1. Создаем сервер и прокидываем пути ![img_1.png](data/img_1.png)
+2. Ставим breakpoint и можно проверить с помощью курла `curl 127.0.0.1:80`

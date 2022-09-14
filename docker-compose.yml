@@ -1,44 +1,44 @@
-version: '3.8'
+version: "3.8"
+
 services:
-    nginx:
-        image: nginx:1.21.1-alpine
-        volumes:
-            - ./manager/docker/development/nginx/conf.d/default.conf:/etc/nginx/conf.d/default.conf
-            - ./manager:/var/www
-        depends_on:
-            - php-fpm
-        ports:
-            - "8080:80"
-    php-fpm:
-        build:
-            context: manager/docker/development
-            dockerfile: php-fpm/Dockerfile
-        volumes:
-            - ./manager:/var/www
-        environment:
-            PHP_IDE_CONFIG: serverName=Docker
-        depends_on:
-            - postgres
-    php-cli:
-        build:
-            context: manager/docker/development
-            dockerfile: php-cli/Dockerfile
-        volumes:
-            - ./manager:/var/www
-            - composer:/root/.composer/cache
-        depends_on:
-            - postgres
-    postgres:
-        image: postgres:13.3-alpine
-        volumes:
-            - postgres:/var/lib/postgresql/data
-        environment:
-            POSTGRES_USER: app
-            POSTGRES_PASSWORD: secret
-            POSTGRES_DB: app
-        ports:
-            - "54321:5432"
+  php-fpm:
+    container_name: php-fpm
+    build:
+      context: ./../
+      dockerfile: ./docker/php-fpm/Dockerfile
+      args:
+        - PUID=${PUID}
+        - PGID=${PGID}
+        - INSTALL_XDEBUG=${INSTALL_XDEBUG}
+    environment:
+      PHP_IDE_CONFIG: "serverName=Docker"
+    volumes:
+      - /var/www/vendor/
+      - ./../:/var/www/
+
+  nginx:
+    container_name: nginx
+    build:
+      context: ./nginx
+    ports:
+      - ${NGINX_HOST_HTTP_PORT}:80
+    volumes:
+      - ..:/var/www:rw
+    depends_on:
+      - php-fpm
+
+  postgres:
+    container_name: postgres
+    build:
+      context: ./postgres
+    ports:
+      - ${POSTGRES_PORT}:5432
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data:rw
 
 volumes:
-    postgres:
-    composer:
+  db_data:

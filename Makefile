@@ -1,68 +1,80 @@
-up: docker-up
-down: docker-down
-restart: docker-down docker-up
-init: docker-down-clear manager-clear docker-pull docker-build docker-up manager-init
-test-coverage: manager-test-coverage
-test-unit: manager-test-unit
-test-unit-coverage: manager-test-unit-coverage
+##################
+# Variables
+##################
 
-docker-up:
-	docker-compose up -d
+DOCKER_COMPOSE = docker compose -f ./docker/docker-compose.yml
+DOCKER_COMPOSE_PHP_FPM_EXEC = ${DOCKER_COMPOSE} exec -u www-data php-fpm
 
-docker-down:
-	docker-compose down --remove-orphans
+##################
+# Docker compose
+##################
 
-docker-down-clear:
-	docker-compose down -v --remove-orphans
+up: dc_up
+down: dc_down
+init: dc_down dc_build dc_up composer_install
 
-docker-pull:
-	docker-compose pull
+dc_build:
+	${DOCKER_COMPOSE} build
 
-docker-build:
-	docker-compose build
+dc_start:
+	${DOCKER_COMPOSE} start
 
-manager-init: manager-composer-install
-#manager-assets-install manager-oauth-keys manager-wait-db manager-migrations manager-fixtures manager-ready
+dc_stop:
+	${DOCKER_COMPOSE} stop
 
-manager-clear:
-	docker run --rm -v ${PWD}/manager:/var/www --workdir=/var/www alpine rm -f .ready
+dc_up:
+	${DOCKER_COMPOSE} up -d --remove-orphans
 
-manager-composer-install:
-	docker-compose run --rm php-cli composer install
+dc_ps:
+	${DOCKER_COMPOSE} ps
 
-manager-assets-install:
-	docker-compose run --rm manager-node yarn install
-	docker-compose run --rm manager-node npm rebuild node-sass
+dc_logs:
+	${DOCKER_COMPOSE} logs -f
 
-manager-oauth-keys:
-	docker-compose run --rm manager-php-cli mkdir -p var/oauth
-	docker-compose run --rm manager-php-cli openssl genrsa -out var/oauth/private.key 2048
-	docker-compose run --rm manager-php-cli openssl rsa -in var/oauth/private.key -pubout -out var/oauth/public.key
-	docker-compose run --rm manager-php-cli chmod 644 var/oauth/private.key var/oauth/public.key
+dc_down:
+	${DOCKER_COMPOSE} down -v --rmi=all --remove-orphans
 
-manager-wait-db:
-	until docker-compose exec -T manager-postgres pg_isready --timeout=0 --dbname=app ; do sleep 1 ; done
+composer_install:
+	${DOCKER_COMPOSE} exec -u www-data php-fpm composer i
 
-manager-migrations:
-	docker-compose run --rm manager-php-cli php bin/console doctrine:migrations:migrate --no-interaction
 
-manager-fixtures:
-	docker-compose run --rm manager-php-cli php bin/console doctrine:fixtures:load --no-interaction
+##################
+# App
+##################
 
-manager-ready:
-	docker run --rm -v ${PWD}/manager:/app --workdir=/app alpine touch .ready
-
-manager-assets-dev:
-	docker-compose run --rm manager-node npm run dev
-
+app_bash:
+	${DOCKER_COMPOSE} exec -u www-data php-fpm bash
 test:
-	docker-compose run --rm manager-php-cli php bin/phpunit
+	${DOCKER_COMPOSE} exec -u www-data php-fpm bin/phpunit
+cache:
+	docker-compose -f ./docker/docker-compose.yml exec -u www-data php-fpm bin/console cache:clear
+	docker-compose -f ./docker/docker-compose.yml exec -u www-data php-fpm bin/console cache:clear --env=test
 
-manager-test-coverage:
-	docker-compose run --rm manager-php-cli php bin/phpunit --coverage-clover var/clover.xml --coverage-html var/coverage
 
-manager-test-unit:
-	docker-compose run --rm manager-php-cli php bin/phpunit --testsuite=unit
+##################
+# Database
+##################
 
-manager-test-unit-coverage:
-	docker-compose run --rm manager-php-cli php bin/phpunit --testsuite=unit --coverage-clover var/clover.xml --coverage-html var/coverage
+db_migrate:
+	${DOCKER_COMPOSE} exec -u www-data php-fpm bin/console doctrine:migrations:migrate --no-interaction
+db_diff:
+	${DOCKER_COMPOSE} exec -u www-data php-fpm bin/console doctrine:migrations:diff --no-interaction
+db_drop:
+	docker-compose -f ./docker/docker-compose.yml exec -u www-data php-fpm bin/console doctrine:schema:drop --force
+
+##################
+# Static code analysis
+##################
+
+phpstan:
+	${DOCKER_COMPOSE_PHP_FPM_EXEC} vendor/bin/phpstan analyse src tests -c phpstan.neon
+
+deptrac:
+	${DOCKER_COMPOSE_PHP_FPM_EXEC} vendor/bin/deptrac analyze deptrac-layers.yaml
+	${DOCKER_COMPOSE_PHP_FPM_EXEC} vendor/bin/deptrac analyze deptrac-modules.yaml
+
+cs_fix:
+	${DOCKER_COMPOSE_PHP_FPM_EXEC} vendor/bin/php-cs-fixer fix
+
+cs_fix_diff:
+	${DOCKER_COMPOSE_PHP_FPM_EXEC} vendor/bin/php-cs-fixer fix --dry-run --diff
